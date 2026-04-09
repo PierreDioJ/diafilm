@@ -1,36 +1,233 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Диафильм — киоск-автомат
 
-## Getting Started
+Веб-приложение для будки с диафильмами. Посетитель оплачивает просмотр через QR-код, выбирает диафильм на экране у входа, заходит внутрь и смотрит слайды на цифровом экране. Слайды переключаются физической кнопкой.
 
-First, run the development server:
+---
+
+## Как это работает
+
+```
+[Экран у входа]  →  QR-оплата (ЮКасса)  →  Список диафильмов  →  Выбор
+                                                                      ↓
+                                                              [Экран внутри]
+                                                         Автоматически загружается
+                                                         выбранный диафильм
+                                                                      ↓
+                                                         Кнопка → следующий слайд
+```
+
+Оба экрана — это два браузерных окна в полноэкранном режиме, открытых на одном компьютере. Они синхронизируются в реальном времени через SSE (Server-Sent Events).
+
+---
+
+## Физическая установка
+
+```
+┌─────────────────────────────────────────────────────┐
+│                       БУДКА                         │
+│                                                     │
+│  [Экран у входа]          [Экран внутри]            │
+│  localhost:3000/          localhost:3000/viewer      │
+│  ↑ HDMI 1                 ↑ HDMI 2 / DisplayPort    │
+│                                                     │
+│           [Компьютер сзади будки]                   │
+│                                                     │
+│  [USB-кнопка внутри] → клавиатурный ввод → viewer  │
+└─────────────────────────────────────────────────────┘
+```
+
+**Кнопка для переключения слайдов** — любое USB-устройство, которое посылает клавиатурный ввод:
+- USB-презентер (стрелка вправо)
+- Цифровая клавиатура
+- Аркадная кнопка через Arduino (эмулирует нажатие клавиши)
+
+Горячие клавиши во viewer: `→` / `Пробел` — следующий слайд, `←` — предыдущий.
+
+---
+
+## Установка
+
+```bash
+git clone <repo>
+cd diafilm
+npm install
+```
+
+### Переменные окружения
+
+Скопируйте `.env.local.example` в `.env.local` и заполните:
+
+```bash
+cp .env.local.example .env.local
+```
+
+| Переменная | Описание |
+|---|---|
+| `YOOKASSA_SHOP_ID` | ID магазина в ЮКассе |
+| `YOOKASSA_SECRET_KEY` | Секретный ключ ЮКассы |
+| `NEXT_PUBLIC_BASE_URL` | URL приложения (для вебхуков), напр. `https://your-domain.ru` |
+
+Если `YOOKASSA_SHOP_ID` и `YOOKASSA_SECRET_KEY` не заданы — приложение работает в **демо-режиме**: оплата пропускается кнопкой.
+
+---
+
+## Запуск
+
+### Разработка
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Сервер запустится на `http://localhost:3000` и будет доступен по локальной сети (`http://192.168.x.x:3000`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Продакшен (для установки в будке)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+Для киоска всегда используйте продакшен-режим — он быстрее и не генерирует WebSocket-ошибок от HMR.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Маршруты
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| URL | Назначение |
+|---|---|
+| `/` | Экран у входа (оплата + выбор диафильма) |
+| `/viewer` | Экран внутри будки (просмотр слайдов) |
+| `/admin/reset` | Сброс сеанса оператором |
 
-## Deploy on Vercel
+### API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Метод | URL | Описание |
+|---|---|---|
+| `GET` | `/api/events` | SSE-поток обновлений состояния |
+| `POST` | `/api/payment/create` | Создать платёж в ЮКассе |
+| `POST` | `/api/payment/webhook` | Вебхук подтверждения оплаты |
+| `POST` | `/api/payment/demo-confirm` | Подтвердить оплату в демо-режиме |
+| `POST` | `/api/film/select` | Выбрать диафильм |
+| `POST` | `/api/slide/next` | Следующий слайд |
+| `POST` | `/api/slide/prev` | Предыдущий слайд |
+| `GET\|POST` | `/api/session` | Получить состояние / сбросить сеанс |
+| `GET` | `/api/qr?url=...` | Сгенерировать QR-код (PNG) |
+| `GET` | `/api/slide-placeholder` | Заглушка слайда (SVG) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Добавление диафильмов
+
+### 1. Зарегистрировать диафильм
+
+Откройте `src/lib/films.ts` и добавьте объект в массив:
+
+```typescript
+{
+  id: 'moidodyr',          // уникальный ID (латиницей, без пробелов)
+  title: 'Мойдодыр',
+  description: 'Стихотворение Корнея Чуковского',
+  year: 1962,
+  totalSlides: 10,         // количество слайдов
+}
+```
+
+### 2. Добавить изображения слайдов
+
+Создайте папку `public/films/<id>/` и положите туда файлы:
+
+```
+public/
+  films/
+    moidodyr/
+      slide-0.jpg   ← первый слайд
+      slide-1.jpg
+      slide-2.jpg
+      ...
+      slide-9.jpg   ← последний (totalSlides - 1)
+```
+
+Поддерживаются форматы JPG, PNG, WEBP. Рекомендуемое соотношение сторон — **4:3** (стандарт диафильмов). Если файл не найден — автоматически показывается SVG-заглушка с номером слайда.
+
+---
+
+## Настройка ЮКассы
+
+1. Зарегистрируйте магазин на [yookassa.ru](https://yookassa.ru)
+2. Получите `shopId` и `secretKey` в настройках магазина
+3. Включите метод оплаты **QR-код** (СБП)
+4. Настройте вебхук в личном кабинете:
+   - URL: `https://your-domain.ru/api/payment/webhook`
+   - Событие: `payment.succeeded`
+
+---
+
+## Настройка киоска (автозапуск)
+
+### macOS / Linux — запуск при старте системы
+
+Создайте скрипт `start-kiosk.sh`:
+
+```bash
+#!/bin/bash
+cd /путь/до/diafilm
+npm run start &
+sleep 3
+
+# Экран у входа (монитор 1)
+open -a "Google Chrome" --args \
+  --kiosk \
+  --disable-session-crashed-bubble \
+  --noerrdialogs \
+  "http://localhost:3000/"
+
+# Экран внутри будки (монитор 2) — открыть в отдельном профиле
+open -a "Google Chrome" --args \
+  --kiosk \
+  --profile-directory="Profile 2" \
+  --disable-session-crashed-bubble \
+  "http://localhost:3000/viewer"
+```
+
+Добавьте скрипт в автозагрузку (macOS: `Системные настройки → Основные → Объекты входа`).
+
+---
+
+## Структура проекта
+
+```
+src/
+  lib/
+    state.ts        — глобальное состояние сеанса + EventEmitter
+    films.ts        — каталог диафильмов
+  app/
+    page.tsx        — экран у входа
+    viewer/
+      page.tsx      — экран внутри будки
+    admin/
+      reset/
+        page.tsx    — сброс сеанса
+    api/            — API-маршруты (см. выше)
+    globals.css     — глобальные стили (советский ретро-дизайн)
+public/
+  films/            — папка для изображений слайдов
+```
+
+---
+
+## Состояния сеанса
+
+```
+idle → payment_pending → film_selection → viewing → (авто-сброс)
+```
+
+| Состояние | Экран у входа | Экран внутри |
+|---|---|---|
+| `idle` | Приветствие + кнопка "Оплатить" | "Выберите диафильм снаружи" |
+| `payment_pending` | QR-код для оплаты | "Выберите диафильм снаружи" |
+| `film_selection` | Сетка диафильмов | "Сделайте выбор на входе" |
+| `viewing` | "Приятного просмотра!" | Слайды выбранного диафильма |
+
+Сеанс сбрасывается автоматически после последнего слайда (10 сек задержка) или через `/admin/reset`.
+# diafilm

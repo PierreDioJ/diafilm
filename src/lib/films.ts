@@ -21,7 +21,7 @@ export const FILMS: Film[] = [
     title: 'Биография Солнца',
     description: 'Увлекательный рассказ о нашей звезде и Солнечной системе',
     year: 1983,
-    totalSlides: 48,
+    totalSlides: 46,
     folder: 'Биография Солнца (1983)',
   },
   {
@@ -29,7 +29,7 @@ export const FILMS: Film[] = [
     title: 'Где же Вилли',
     description: 'Детский диафильм о приключениях и дружбе',
     year: 1980,
-    totalSlides: 40,
+    totalSlides: 38,
     folder: 'Где же Вилли (1980)',
   },
   {
@@ -37,7 +37,7 @@ export const FILMS: Film[] = [
     title: 'Детство Пушкина',
     description: 'Ранние годы великого русского поэта',
     year: 1969,
-    totalSlides: 55,
+    totalSlides: 53,
     folder: 'Детство Пушкина (1969)',
   },
   {
@@ -45,7 +45,7 @@ export const FILMS: Film[] = [
     title: 'На вершинах Ленинграда',
     description: 'Архитектурные и исторические памятники города на Неве',
     year: 1965,
-    totalSlides: 50,
+    totalSlides: 48,
     folder: 'На вершинах Ленинграда (1965)',
   },
   {
@@ -53,7 +53,7 @@ export const FILMS: Film[] = [
     title: 'У моря',
     description: 'Лирический рассказ о жизни у морского берега',
     year: 1974,
-    totalSlides: 46,
+    totalSlides: 44,
     folder: 'У моря (1974)',
   },
 ]

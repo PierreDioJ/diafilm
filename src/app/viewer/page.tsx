@@ -2,16 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { Session } from '@/lib/state'
+import { FILMS } from '@/lib/films'
 import type { Film } from '@/lib/films'
-
-const FILMS: Film[] = [
-  { id: 'cheburashka', title: 'Чебурашка', description: 'Маленький зверёк ищет себе друзей', year: 1971, totalSlides: 12 },
-  { id: 'kolobok', title: 'Колобок', description: 'Народная сказка о непослушном колобке', year: 1956, totalSlides: 10 },
-  { id: 'snegurochka', title: 'Снегурочка', description: 'Сказка о снежной девочке', year: 1963, totalSlides: 14 },
-  { id: 'repka', title: 'Репка', description: 'Дружная семья тянет большую репу', year: 1950, totalSlides: 8 },
-  { id: 'zolushka', title: 'Золушка', description: 'Сказка о трудолюбивой девочке и хрустальном башмачке', year: 1958, totalSlides: 16 },
-  { id: 'buratino', title: 'Буратино', description: 'Приключения деревянного мальчика', year: 1953, totalSlides: 11 },
-]
 
 const END_RESET_SECONDS = 10
 
@@ -569,7 +561,7 @@ export default function ViewerPage() {
               <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
                 <img
                   key={slideNum}
-                  src={`/films/${selectedFilm.id}/slide-${slideNum}.jpg`}
+                  src={`/api/film-image?id=${selectedFilm.id}&slide=${slideNum}`}
                   alt={`${selectedFilm.title} — кадр ${slideDisplay}`}
                   onError={(e) => {
                     ;(e.target as HTMLImageElement).src = `/api/slide-placeholder?film=${encodeURIComponent(selectedFilm.title)}&slide=${slideDisplay}&total=${selectedFilm.totalSlides}`

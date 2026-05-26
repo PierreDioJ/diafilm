@@ -179,9 +179,11 @@ export default function ViewerPage() {
   const [qrSrc, setQrSrc] = useState<string | null>(null)
   const [endCountdown, setEndCountdown] = useState(END_RESET_SECONDS)
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next')
+  const [showEndOverlay, setShowEndOverlay] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const endTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isLastSlideRef = useRef(false)
 
   const connectSSE = useCallback(() => {
     if (esRef.current) {
@@ -324,7 +326,11 @@ export default function ViewerPage() {
     const handleKey = async (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault()
-        await fetch('/api/slide/next', { method: 'POST' })
+        if (isLastSlideRef.current) {
+          setShowEndOverlay(true)
+        } else {
+          await fetch('/api/slide/next', { method: 'POST' })
+        }
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
         await fetch('/api/slide/prev', { method: 'POST' })
@@ -348,7 +354,12 @@ export default function ViewerPage() {
     session.currentSlide >= selectedFilm.totalSlides - 1
 
   useEffect(() => {
-    if (!isLastSlide) {
+    isLastSlideRef.current = !!isLastSlide
+    if (!isLastSlide) setShowEndOverlay(false)
+  }, [isLastSlide])
+
+  useEffect(() => {
+    if (!showEndOverlay) {
       if (endTimerRef.current) {
         clearInterval(endTimerRef.current)
         endTimerRef.current = null
@@ -375,7 +386,7 @@ export default function ViewerPage() {
         endTimerRef.current = null
       }
     }
-  }, [isLastSlide])
+  }, [showEndOverlay])
 
   const handlePayment = async () => {
     setLoading(true)
@@ -415,6 +426,10 @@ export default function ViewerPage() {
   }
 
   const handleNext = async () => {
+    if (isLastSlide) {
+      setShowEndOverlay(true)
+      return
+    }
     await fetch('/api/slide/next', { method: 'POST' })
   }
 
@@ -591,7 +606,7 @@ export default function ViewerPage() {
           </div>
 
           {/* END OF FILM overlay */}
-          {isLastSlide && (
+          {showEndOverlay && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(13,8,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)' }} className="fade-in">
               <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }} className="flicker">🎞</div>
               <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '2.5rem', color: '#d4941e', margin: '0 0 0.5rem', letterSpacing: '0.1em' }} className="amber-glow-text">
